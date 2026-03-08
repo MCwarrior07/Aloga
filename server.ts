@@ -7,7 +7,9 @@ import path from "path";
 import fs from "fs";
 import multer from "multer";
 
-const uploadDir = path.join(process.cwd(), "uploads");
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true' || !!process.env.VERCEL;
+
+const uploadDir = isVercel ? path.join('/tmp', 'uploads') : path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -18,7 +20,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-const db = new Database("vibestream.db");
+const dbPath = isVercel ? path.join('/tmp', 'vibestream.db') : "vibestream.db";
+const db = new Database(dbPath);
 const JWT_SECRET = process.env.JWT_SECRET || "vibe-secret-key-123";
 
 // --- Database Initialization ---
@@ -196,209 +199,209 @@ const optionalAuthenticate = (req: any, res: any, next: any) => {
   next();
 };
 
-async function startServer() {
-  const app = express();
-  app.use(express.json());
-  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// --- App Setup ---
+const app = express();
+app.use(express.json());
+app.use("/uploads", express.static(uploadDir));
 
-  // --- Auth Routes ---
-  app.post("/api/auth/register", (req, res) => {
-    const { username, email, password } = req.body;
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    try {
-      const result = db.prepare("INSERT INTO users (username, email, password, avatar_url) VALUES (?, ?, ?, ?)").run(
-        username, email, hashedPassword, `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
-      );
-      res.json({ success: true, userId: result.lastInsertRowid });
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+// --- Auth Routes ---
+app.post("/api/auth/register", (req, res) => {
+  const { username, email, password } = req.body;
+  const hashedPassword = bcrypt.hashSync(password, 10);
+  try {
+    const result = db.prepare("INSERT INTO users (username, email, password, avatar_url) VALUES (?, ?, ?, ?)").run(
+      username, email, hashedPassword, `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
+    );
+    res.json({ success: true, userId: result.lastInsertRowid });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
-  app.post("/api/auth/login", (req, res) => {
-    const { email, password } = req.body;
-    const user: any = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-    const token = jwt.sign({ id: user.id, username: user.username, isAdmin: user.is_admin }, JWT_SECRET);
-    res.json({ token, user: { id: user.id, username: user.username, isAdmin: user.is_admin, avatar_url: user.avatar_url } });
-  });
+app.post("/api/auth/login", (req, res) => {
+  const { email, password } = req.body;
+  const user: any = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+  const token = jwt.sign({ id: user.id, username: user.username, isAdmin: user.is_admin }, JWT_SECRET);
+  res.json({ token, user: { id: user.id, username: user.username, isAdmin: user.is_admin, avatar_url: user.avatar_url } });
+});
 
-  // --- User Routes ---
-  app.get("/api/users/top", (req, res) => {
-    const users = db.prepare(`
+// --- User Routes ---
+app.get("/api/users/top", (req, res) => {
+  const users = db.prepare(`
       SELECT u.id, u.username, u.avatar_url, 
       (SELECT COUNT(*) FROM subscriptions WHERE following_id = u.id) as subscribers
       FROM users u
       ORDER BY subscribers DESC, u.id ASC
       LIMIT 6
     `).all();
-    res.json(users);
-  });
+  res.json(users);
+});
 
-  app.get("/api/users/:id", (req, res) => {
-    const user: any = db.prepare("SELECT id, username, avatar_url, created_at FROM users WHERE id = ?").get(req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
+app.get("/api/users/:id", (req, res) => {
+  const user: any = db.prepare("SELECT id, username, avatar_url, created_at FROM users WHERE id = ?").get(req.params.id);
+  if (!user) return res.status(404).json({ error: "User not found" });
 
-    const subscribers = db.prepare("SELECT COUNT(*) as count FROM subscriptions WHERE following_id = ?").get(user.id).count;
-    const videoCount = db.prepare("SELECT COUNT(*) as count FROM videos WHERE user_id = ? AND status = 'published'").get(user.id).count;
-    const totalViews = db.prepare("SELECT SUM(views) as total FROM videos WHERE user_id = ? AND status = 'published'").get(user.id).total || 0;
+  const subscribers = db.prepare("SELECT COUNT(*) as count FROM subscriptions WHERE following_id = ?").get(user.id).count;
+  const videoCount = db.prepare("SELECT COUNT(*) as count FROM videos WHERE user_id = ? AND status = 'published'").get(user.id).count;
+  const totalViews = db.prepare("SELECT SUM(views) as total FROM videos WHERE user_id = ? AND status = 'published'").get(user.id).total || 0;
 
-    user.banner_url = `https://picsum.photos/seed/banner${user.id}/1920/400`;
-    user.subscribers = subscribers;
-    user.video_count = videoCount;
-    user.total_views = totalViews;
+  user.banner_url = `https://picsum.photos/seed/banner${user.id}/1920/400`;
+  user.subscribers = subscribers;
+  user.video_count = videoCount;
+  user.total_views = totalViews;
 
-    res.json(user);
-  });
+  res.json(user);
+});
 
-  // --- Video Routes ---
-  app.get("/api/videos", (req, res) => {
-    const { short, category, search } = req.query;
-    let query = "SELECT v.*, u.username as creator_name, u.avatar_url as creator_avatar, (SELECT COUNT(*) FROM comments WHERE video_id = v.id) as comment_count FROM videos v JOIN users u ON v.user_id = u.id WHERE v.status = 'published'";
-    const params: any[] = [];
+// --- Video Routes ---
+app.get("/api/videos", (req, res) => {
+  const { short, category, search } = req.query;
+  let query = "SELECT v.*, u.username as creator_name, u.avatar_url as creator_avatar, (SELECT COUNT(*) FROM comments WHERE video_id = v.id) as comment_count FROM videos v JOIN users u ON v.user_id = u.id WHERE v.status = 'published'";
+  const params: any[] = [];
 
-    if (short !== undefined) {
-      query += " AND v.is_short = ?";
-      params.push(short === "true" ? 1 : 0);
-    }
-    if (category) {
-      query += " AND v.category = ?";
-      params.push(category);
-    }
-    if (search) {
-      query += " AND (v.title LIKE ? OR v.description LIKE ?)";
-      params.push(`%${search}%`, `%${search}%`);
-    }
+  if (short !== undefined) {
+    query += " AND v.is_short = ?";
+    params.push(short === "true" ? 1 : 0);
+  }
+  if (category) {
+    query += " AND v.category = ?";
+    params.push(category);
+  }
+  if (search) {
+    query += " AND (v.title LIKE ? OR v.description LIKE ?)";
+    params.push(`%${search}%`, `%${search}%`);
+  }
 
-    query += " ORDER BY v.created_at DESC";
-    const videos = db.prepare(query).all(...params);
-    res.json(videos);
-  });
+  query += " ORDER BY v.created_at DESC";
+  const videos = db.prepare(query).all(...params);
+  res.json(videos);
+});
 
-  app.get("/api/videos/:id", optionalAuthenticate, (req: any, res) => {
-    const video: any = db.prepare("SELECT v.*, u.username as creator_name, u.avatar_url as creator_avatar FROM videos v JOIN users u ON v.user_id = u.id WHERE v.id = ?").get(req.params.id);
-    if (!video) return res.status(404).json({ error: "Video not found" });
+app.get("/api/videos/:id", optionalAuthenticate, (req: any, res) => {
+  const video: any = db.prepare("SELECT v.*, u.username as creator_name, u.avatar_url as creator_avatar FROM videos v JOIN users u ON v.user_id = u.id WHERE v.id = ?").get(req.params.id);
+  if (!video) return res.status(404).json({ error: "Video not found" });
 
-    // Increment views
-    db.prepare("UPDATE videos SET views = views + 1 WHERE id = ?").run(req.params.id);
+  // Increment views
+  db.prepare("UPDATE videos SET views = views + 1 WHERE id = ?").run(req.params.id);
 
-    // Record history if logged in
-    if (req.user) {
-      db.prepare("INSERT INTO watch_history (user_id, video_id) VALUES (?, ?)").run(req.user.id, video.id);
-    }
+  // Record history if logged in
+  if (req.user) {
+    db.prepare("INSERT INTO watch_history (user_id, video_id) VALUES (?, ?)").run(req.user.id, video.id);
+  }
 
-    // Get subscriber count
-    const subscribers = db.prepare("SELECT COUNT(*) as count FROM subscriptions WHERE following_id = ?").get(video.user_id).count;
-    video.subscriber_count = subscribers;
+  // Get subscriber count
+  const subscribers = db.prepare("SELECT COUNT(*) as count FROM subscriptions WHERE following_id = ?").get(video.user_id).count;
+  video.subscriber_count = subscribers;
 
-    res.json(video);
-  });
+  res.json(video);
+});
 
-  app.post("/api/videos/:id/like", authenticate, (req: any, res) => {
-    try {
-      const videoId = req.params.id;
-      const userId = req.user.id;
-
-      const existing = db.prepare("SELECT * FROM video_likes WHERE video_id = ? AND user_id = ?").get(videoId, userId);
-
-      if (existing) {
-        db.prepare("DELETE FROM video_likes WHERE video_id = ? AND user_id = ?").run(videoId, userId);
-        db.prepare("UPDATE videos SET likes = likes - 1 WHERE id = ?").run(videoId);
-        res.json({ liked: false });
-      } else {
-        db.prepare("INSERT INTO video_likes (video_id, user_id) VALUES (?, ?)").run(videoId, userId);
-        db.prepare("UPDATE videos SET likes = likes + 1 WHERE id = ?").run(videoId);
-        res.json({ liked: true });
-      }
-    } catch (err: any) {
-      console.error("Like Error:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.get("/api/videos/:id/like/check", authenticate, (req: any, res) => {
+app.post("/api/videos/:id/like", authenticate, (req: any, res) => {
+  try {
     const videoId = req.params.id;
     const userId = req.user.id;
+
     const existing = db.prepare("SELECT * FROM video_likes WHERE video_id = ? AND user_id = ?").get(videoId, userId);
-    res.json({ liked: !!existing });
-  });
-
-  app.get("/api/videos/:id/comments", (req, res) => {
-    const comments = db.prepare("SELECT c.*, u.username, u.avatar_url FROM comments c JOIN users u ON c.user_id = u.id WHERE c.video_id = ? ORDER BY c.created_at DESC").all(req.params.id);
-    res.json(comments);
-  });
-
-  app.post("/api/videos/:id/comments", authenticate, (req: any, res) => {
-    try {
-      const { content } = req.body;
-      const result = db.prepare("INSERT INTO comments (video_id, user_id, content) VALUES (?, ?, ?)").run(
-        req.params.id, req.user.id, content
-      );
-      const comment = db.prepare("SELECT c.*, u.username, u.avatar_url FROM comments c JOIN users u ON c.user_id = u.id WHERE c.id = ?").get(result.lastInsertRowid);
-      res.json(comment);
-    } catch (err: any) {
-      console.error("Comment Error:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/videos", authenticate, upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), (req: any, res) => {
-    const { title, description, is_short, category, tags } = req.body;
-    try {
-      const videoPath = req.files?.['video'] ? `/uploads/${req.files['video'][0].filename}` : req.body.video_url;
-      const thumbnailPath = req.files?.['thumbnail'] ? `/uploads/${req.files['thumbnail'][0].filename}` : req.body.thumbnail_url;
-
-      const isShortVal = is_short === 'true' || is_short === true ? 1 : 0;
-
-      const result = db.prepare("INSERT INTO videos (user_id, title, description, video_url, thumbnail_url, is_short, category, tags, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-        req.user.id, title, description, videoPath, thumbnailPath, isShortVal, category || 'General', tags || '', 'published'
-      );
-      res.json({ success: true, videoId: result.lastInsertRowid });
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  // --- Subscription Routes ---
-  app.post("/api/subscriptions/toggle", authenticate, (req: any, res) => {
-    const { following_id } = req.body;
-    const follower_id = req.user.id;
-
-    if (follower_id === following_id) return res.status(400).json({ error: "Cannot subscribe to yourself" });
-
-    const existing = db.prepare("SELECT * FROM subscriptions WHERE follower_id = ? AND following_id = ?").get(follower_id, following_id);
 
     if (existing) {
-      db.prepare("DELETE FROM subscriptions WHERE follower_id = ? AND following_id = ?").run(follower_id, following_id);
-      res.json({ subscribed: false });
+      db.prepare("DELETE FROM video_likes WHERE video_id = ? AND user_id = ?").run(videoId, userId);
+      db.prepare("UPDATE videos SET likes = likes - 1 WHERE id = ?").run(videoId);
+      res.json({ liked: false });
     } else {
-      db.prepare("INSERT INTO subscriptions (follower_id, following_id) VALUES (?, ?)").run(follower_id, following_id);
-      res.json({ subscribed: true });
+      db.prepare("INSERT INTO video_likes (video_id, user_id) VALUES (?, ?)").run(videoId, userId);
+      db.prepare("UPDATE videos SET likes = likes + 1 WHERE id = ?").run(videoId);
+      res.json({ liked: true });
     }
-  });
+  } catch (err: any) {
+    console.error("Like Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  app.get("/api/subscriptions/check/:id", authenticate, (req: any, res) => {
-    const following_id = req.params.id;
-    const follower_id = req.user.id;
-    const existing = db.prepare("SELECT * FROM subscriptions WHERE follower_id = ? AND following_id = ?").get(follower_id, following_id);
-    res.json({ subscribed: !!existing });
-  });
+app.get("/api/videos/:id/like/check", authenticate, (req: any, res) => {
+  const videoId = req.params.id;
+  const userId = req.user.id;
+  const existing = db.prepare("SELECT * FROM video_likes WHERE video_id = ? AND user_id = ?").get(videoId, userId);
+  res.json({ liked: !!existing });
+});
 
-  app.get("/api/subscriptions/mine", authenticate, (req: any, res) => {
-    const subs = db.prepare(`
+app.get("/api/videos/:id/comments", (req, res) => {
+  const comments = db.prepare("SELECT c.*, u.username, u.avatar_url FROM comments c JOIN users u ON c.user_id = u.id WHERE c.video_id = ? ORDER BY c.created_at DESC").all(req.params.id);
+  res.json(comments);
+});
+
+app.post("/api/videos/:id/comments", authenticate, (req: any, res) => {
+  try {
+    const { content } = req.body;
+    const result = db.prepare("INSERT INTO comments (video_id, user_id, content) VALUES (?, ?, ?)").run(
+      req.params.id, req.user.id, content
+    );
+    const comment = db.prepare("SELECT c.*, u.username, u.avatar_url FROM comments c JOIN users u ON c.user_id = u.id WHERE c.id = ?").get(result.lastInsertRowid);
+    res.json(comment);
+  } catch (err: any) {
+    console.error("Comment Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/videos", authenticate, upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), (req: any, res) => {
+  const { title, description, is_short, category, tags } = req.body;
+  try {
+    const videoPath = req.files?.['video'] ? `/uploads/${req.files['video'][0].filename}` : req.body.video_url;
+    const thumbnailPath = req.files?.['thumbnail'] ? `/uploads/${req.files['thumbnail'][0].filename}` : req.body.thumbnail_url;
+
+    const isShortVal = is_short === 'true' || is_short === true ? 1 : 0;
+
+    const result = db.prepare("INSERT INTO videos (user_id, title, description, video_url, thumbnail_url, is_short, category, tags, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      req.user.id, title, description, videoPath, thumbnailPath, isShortVal, category || 'General', tags || '', 'published'
+    );
+    res.json({ success: true, videoId: result.lastInsertRowid });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// --- Subscription Routes ---
+app.post("/api/subscriptions/toggle", authenticate, (req: any, res) => {
+  const { following_id } = req.body;
+  const follower_id = req.user.id;
+
+  if (follower_id === following_id) return res.status(400).json({ error: "Cannot subscribe to yourself" });
+
+  const existing = db.prepare("SELECT * FROM subscriptions WHERE follower_id = ? AND following_id = ?").get(follower_id, following_id);
+
+  if (existing) {
+    db.prepare("DELETE FROM subscriptions WHERE follower_id = ? AND following_id = ?").run(follower_id, following_id);
+    res.json({ subscribed: false });
+  } else {
+    db.prepare("INSERT INTO subscriptions (follower_id, following_id) VALUES (?, ?)").run(follower_id, following_id);
+    res.json({ subscribed: true });
+  }
+});
+
+app.get("/api/subscriptions/check/:id", authenticate, (req: any, res) => {
+  const following_id = req.params.id;
+  const follower_id = req.user.id;
+  const existing = db.prepare("SELECT * FROM subscriptions WHERE follower_id = ? AND following_id = ?").get(follower_id, following_id);
+  res.json({ subscribed: !!existing });
+});
+
+app.get("/api/subscriptions/mine", authenticate, (req: any, res) => {
+  const subs = db.prepare(`
       SELECT u.id, u.username, u.avatar_url 
       FROM subscriptions s
       JOIN users u ON s.following_id = u.id
       WHERE s.follower_id = ?
     `).all(req.user.id);
-    res.json(subs);
-  });
+  res.json(subs);
+});
 
-  // --- Watch History Routes ---
-  app.get("/api/history", authenticate, (req: any, res) => {
-    const history = db.prepare(`
+// --- Watch History Routes ---
+app.get("/api/history", authenticate, (req: any, res) => {
+  const history = db.prepare(`
       SELECT w.id as history_id, w.watched_at, v.*, u.username as creator_name, u.avatar_url as creator_avatar 
       FROM watch_history w
       JOIN videos v ON w.video_id = v.id
@@ -407,15 +410,15 @@ async function startServer() {
       ORDER BY w.watched_at DESC
       LIMIT 50
     `).all(req.user.id);
-    res.json(history);
-  });
+  res.json(history);
+});
 
-  // --- Notification Routes ---
-  app.get("/api/notifications", authenticate, (req: any, res) => {
-    // For now, mock notifications based on recent activity, or return empty
-    // In a real app, you'd have a notifications table.
-    // We'll return recent videos from subscribed channels as notifications
-    const recentVideosFromSubs = db.prepare(`
+// --- Notification Routes ---
+app.get("/api/notifications", authenticate, (req: any, res) => {
+  // For now, mock notifications based on recent activity, or return empty
+  // In a real app, you'd have a notifications table.
+  // We'll return recent videos from subscribed channels as notifications
+  const recentVideosFromSubs = db.prepare(`
       SELECT v.id as video_id, v.title, u.username, u.avatar_url, v.created_at
       FROM videos v
       JOIN subscriptions s ON v.user_id = s.following_id
@@ -425,116 +428,119 @@ async function startServer() {
       LIMIT 5
     `).all(req.user.id);
 
-    const notifications = recentVideosFromSubs.map((v: any) => ({
-      id: `new_video_${v.video_id}`,
-      type: 'new_video',
-      message: `${v.username} uploaded: ${v.title}`,
-      avatar_url: v.avatar_url,
-      link: `/watch/${v.video_id}`,
-      created_at: v.created_at
-    }));
+  const notifications = recentVideosFromSubs.map((v: any) => ({
+    id: `new_video_${v.video_id}`,
+    type: 'new_video',
+    message: `${v.username} uploaded: ${v.title}`,
+    avatar_url: v.avatar_url,
+    link: `/watch/${v.video_id}`,
+    created_at: v.created_at
+  }));
 
-    res.json(notifications);
-  });
+  res.json(notifications);
+});
 
-  // --- Ad System ---
-  app.get("/api/ads/serve", (req, res) => {
-    const { type } = req.query;
-    const ad = db.prepare("SELECT * FROM ads WHERE type = ? AND active = 1 ORDER BY RANDOM() LIMIT 1").get(type);
-    res.json(ad || null);
-  });
+// --- Ad System ---
+app.get("/api/ads/serve", (req, res) => {
+  const { type } = req.query;
+  const ad = db.prepare("SELECT * FROM ads WHERE type = ? AND active = 1 ORDER BY RANDOM() LIMIT 1").get(type);
+  res.json(ad || null);
+});
 
-  app.post("/api/ads/impression", (req, res) => {
-    const { ad_id, video_id, user_id } = req.body;
-    const revenue = 0.05; // $0.05 per impression
-    db.prepare("INSERT INTO ad_impressions (ad_id, video_id, user_id, revenue) VALUES (?, ?, ?, ?)").run(
-      ad_id, video_id, user_id || null, revenue
+app.post("/api/ads/impression", (req, res) => {
+  const { ad_id, video_id, user_id } = req.body;
+  const revenue = 0.05; // $0.05 per impression
+  db.prepare("INSERT INTO ad_impressions (ad_id, video_id, user_id, revenue) VALUES (?, ?, ?, ?)").run(
+    ad_id, video_id, user_id || null, revenue
+  );
+
+  // Distribute earnings
+  const video: any = db.prepare("SELECT user_id FROM videos WHERE id = ?").get(video_id);
+  if (video) {
+    const creatorShare = revenue * 0.7;
+    const platformShare = revenue * 0.3;
+
+    // Pay Creator
+    db.prepare("INSERT INTO earnings (user_id, amount, source) VALUES (?, ?, ?)").run(
+      video.user_id, creatorShare, "ad_share_creator"
     );
 
-    // Distribute earnings
-    const video: any = db.prepare("SELECT user_id FROM videos WHERE id = ?").get(video_id);
-    if (video) {
-      const creatorShare = revenue * 0.7;
-      const platformShare = revenue * 0.3;
+    // Pay Platform (Admin - user_id 1)
+    db.prepare("INSERT INTO earnings (user_id, amount, source) VALUES (?, ?, ?)").run(
+      1, platformShare, "ad_share_platform"
+    );
+  }
 
-      // Pay Creator
-      db.prepare("INSERT INTO earnings (user_id, amount, source) VALUES (?, ?, ?)").run(
-        video.user_id, creatorShare, "ad_share_creator"
-      );
+  res.json({ success: true });
+});
 
-      // Pay Platform (Admin - user_id 1)
-      db.prepare("INSERT INTO earnings (user_id, amount, source) VALUES (?, ?, ?)").run(
-        1, platformShare, "ad_share_platform"
-      );
-    }
+// --- Creator Studio / Analytics ---
+app.get("/api/studio/stats", authenticate, (req: any, res) => {
+  const userId = req.user.id;
 
-    res.json({ success: true });
-  });
+  // Total views, earnings, subs
+  const totalViews = db.prepare("SELECT SUM(views) as total FROM videos WHERE user_id = ?").get(userId).total || 0;
+  const totalEarnings = db.prepare("SELECT SUM(amount) as total FROM earnings WHERE user_id = ?").get(userId).total || 0;
+  const subscribers = db.prepare("SELECT COUNT(*) as count FROM subscriptions WHERE following_id = ?").get(userId).count || 0;
+  const videos = db.prepare("SELECT v.*, (SELECT COUNT(*) FROM comments WHERE video_id = v.id) as comment_count FROM videos v WHERE user_id = ? ORDER BY created_at DESC").all(userId);
 
-  // --- Creator Studio / Analytics ---
-  app.get("/api/studio/stats", authenticate, (req: any, res) => {
-    const userId = req.user.id;
+  // Calculate a rough watch time (e.g. 2.5 mins average per view)
+  const watchTime = Math.floor((totalViews * 2.5) / 60);
 
-    // Total views, earnings, subs
-    const totalViews = db.prepare("SELECT SUM(views) as total FROM videos WHERE user_id = ?").get(userId).total || 0;
-    const totalEarnings = db.prepare("SELECT SUM(amount) as total FROM earnings WHERE user_id = ?").get(userId).total || 0;
-    const subscribers = db.prepare("SELECT COUNT(*) as count FROM subscriptions WHERE following_id = ?").get(userId).count || 0;
-    const videos = db.prepare("SELECT v.*, (SELECT COUNT(*) FROM comments WHERE video_id = v.id) as comment_count FROM videos v WHERE user_id = ? ORDER BY created_at DESC").all(userId);
+  // Generate chart data (last 12 days simulation or weeks if you prefer, but we'll do 12 periods of "views")
+  // For a real app, this groups by Day. Here we'll just mock a curve based on total views
+  // to keep it simple but somewhat dynamic based on the creator's actual views
+  const baseViews = Math.max(totalViews / 10, 10);
+  const chartData = [
+    baseViews * 0.4, baseViews * 0.6, baseViews * 0.45, baseViews * 0.7,
+    baseViews * 0.55, baseViews * 0.9, baseViews * 0.8, baseViews * 1.0,
+    baseViews * 0.85, baseViews * 1.1, baseViews * 0.95, baseViews * 1.2
+  ].map(v => Math.round(v));
 
-    // Calculate a rough watch time (e.g. 2.5 mins average per view)
-    const watchTime = Math.floor((totalViews * 2.5) / 60);
+  const stats = {
+    totalViews,
+    totalEarnings,
+    subscribers,
+    videos,
+    watchTime,
+    chartData
+  };
+  res.json(stats);
+});
 
-    // Generate chart data (last 12 days simulation or weeks if you prefer, but we'll do 12 periods of "views")
-    // For a real app, this groups by Day. Here we'll just mock a curve based on total views
-    // to keep it simple but somewhat dynamic based on the creator's actual views
-    const baseViews = Math.max(totalViews / 10, 10);
-    const chartData = [
-      baseViews * 0.4, baseViews * 0.6, baseViews * 0.45, baseViews * 0.7,
-      baseViews * 0.55, baseViews * 0.9, baseViews * 0.8, baseViews * 1.0,
-      baseViews * 0.85, baseViews * 1.1, baseViews * 0.95, baseViews * 1.2
-    ].map(v => Math.round(v));
+// --- Admin Routes ---
+app.get("/api/admin/stats", authenticate, (req: any, res) => {
+  if (!req.user.isAdmin) return res.status(403).json({ error: "Forbidden" });
+  const stats = {
+    platformRevenue: db.prepare("SELECT SUM(amount) as total FROM earnings WHERE source = 'ad_share_platform'").get().total || 0,
+    totalUsers: db.prepare("SELECT COUNT(*) as count FROM users").get().count,
+    totalVideos: db.prepare("SELECT COUNT(*) as count FROM videos").get().count,
+    totalViews: db.prepare("SELECT SUM(views) as total FROM videos").get().total || 0
+  };
+  res.json(stats);
+});
 
-    const stats = {
-      totalViews,
-      totalEarnings,
-      subscribers,
-      videos,
-      watchTime,
-      chartData
-    };
-    res.json(stats);
-  });
+app.get("/api/admin/reports", authenticate, (req: any, res) => {
+  if (!req.user.isAdmin) return res.status(403).json({ error: "Forbidden" });
+  const reports = db.prepare("SELECT r.*, v.title as video_title, u.username as reporter_name FROM reports r JOIN videos v ON r.video_id = v.id JOIN users u ON r.reporter_id = u.id WHERE r.status = 'pending'").all();
+  res.json(reports);
+});
 
-  // --- Admin Routes ---
-  app.get("/api/admin/stats", authenticate, (req: any, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: "Forbidden" });
-    const stats = {
-      platformRevenue: db.prepare("SELECT SUM(amount) as total FROM earnings WHERE source = 'ad_share_platform'").get().total || 0,
-      totalUsers: db.prepare("SELECT COUNT(*) as count FROM users").get().count,
-      totalVideos: db.prepare("SELECT COUNT(*) as count FROM videos").get().count,
-      totalViews: db.prepare("SELECT SUM(views) as total FROM videos").get().total || 0
-    };
-    res.json(stats);
-  });
+app.post("/api/admin/moderate", authenticate, (req: any, res) => {
+  if (!req.user.isAdmin) return res.status(403).json({ error: "Forbidden" });
+  const { video_id, action } = req.body; // action: 'delete', 'flag', 'approve'
+  if (action === 'delete') {
+    db.prepare("UPDATE videos SET status = 'deleted' WHERE id = ?").run(video_id);
+  } else if (action === 'flag') {
+    db.prepare("UPDATE videos SET status = 'flagged' WHERE id = ?").run(video_id);
+  }
+  res.json({ success: true });
+});
 
-  app.get("/api/admin/reports", authenticate, (req: any, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: "Forbidden" });
-    const reports = db.prepare("SELECT r.*, v.title as video_title, u.username as reporter_name FROM reports r JOIN videos v ON r.video_id = v.id JOIN users u ON r.reporter_id = u.id WHERE r.status = 'pending'").all();
-    res.json(reports);
-  });
+// --- Vite Setup ---
+async function setupFrontend() {
+  if (isVercel) return;
 
-  app.post("/api/admin/moderate", authenticate, (req: any, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: "Forbidden" });
-    const { video_id, action } = req.body; // action: 'delete', 'flag', 'approve'
-    if (action === 'delete') {
-      db.prepare("UPDATE videos SET status = 'deleted' WHERE id = ?").run(video_id);
-    } else if (action === 'flag') {
-      db.prepare("UPDATE videos SET status = 'flagged' WHERE id = ?").run(video_id);
-    }
-    res.json({ success: true });
-  });
-
-  // --- Vite Setup ---
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -548,10 +554,12 @@ async function startServer() {
     });
   }
 
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Aloga Server running on http://localhost:${PORT}`);
   });
 }
 
-startServer();
+setupFrontend();
+
+export default app;
