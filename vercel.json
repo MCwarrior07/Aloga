@@ -22,7 +22,7 @@
     ],
     "functions": {
         "api/index.ts": {
-            "includeFiles": "{vibestream.db,node_modules/sql.js/dist/sql-wasm.wasm}"
+            "includeFiles": "vibestream.db"
         }
     }
 }

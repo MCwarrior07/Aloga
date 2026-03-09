@@ -504,21 +504,23 @@ app.use((err: any, req: any, res: any, next: any) => {
   res.status(500).json({ error: "Internal Server Error", message: err.message });
 });
 
-// --- Vite Setup (local dev only) ---
-async function setupFrontend() {
-  if (isVercel) return;
-  if (!isProd) {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
-    app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.join(process.cwd(), "dist")));
-    app.get("*", async (req, res) => { res.sendFile(path.join(process.cwd(), "dist/index.html")); });
+// --- Vite Setup & Server Start ---
+async function startServer() {
+  if (!isVercel) {
+    if (!isProd) {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
+      app.use(vite.middlewares);
+    } else {
+      app.use(express.static(path.join(process.cwd(), "dist")));
+      app.get("*", (req, res) => { res.sendFile(path.join(process.cwd(), "dist/index.html")); });
+    }
+    const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+    app.listen(PORT, "0.0.0.0", () => { console.log(`Aloga Server running on http://localhost:${PORT}`); });
   }
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-  app.listen(PORT, "0.0.0.0", () => { console.log(`Aloga Server running on http://localhost:${PORT}`); });
 }
 
-setupFrontend();
+startServer();
 
+// Vercel Serverless Export
 export default app;
