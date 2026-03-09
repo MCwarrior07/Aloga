@@ -1,12 +1,12 @@
 import https from 'https';
+import fs from 'fs';
 
 https.get('https://aloga.vercel.app/api/ping', (res) => {
     let data = '';
     res.on('data', (chunk) => { data += chunk; });
     res.on('end', () => {
-        console.log('Status Code:', res.statusCode);
-        console.log('--- BODY ---');
-        console.log(data);
+        fs.writeFileSync('vercel-error.json', data);
+        console.log('Saved to vercel-error.json');
     });
 }).on("error", (err) => {
     console.log("Error: " + err.message);
