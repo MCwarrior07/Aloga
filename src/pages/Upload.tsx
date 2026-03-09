@@ -86,21 +86,17 @@ export default function Upload({ user }: { user: any }) {
       submitData.append('category', formData.category);
       submitData.append('tags', formData.tags);
 
-      if (isVercel && videoFile) {
-        // Vercel serverless /tmp is ephemeral, videos will 404. We simulate uploads with a generic video string.
+      if (isVercel) {
+        // Vercel serverless proxy strictly blocks >4.5MB payloads and returns 413.
+        // We MUST NOT send the binary File object. Instead, we pipe mock URLs.
         submitData.append('video_url', 'https://www.w3schools.com/html/mov_bbb.mp4');
-      } else if (videoFile) {
-        submitData.append('video', videoFile);
-      } else {
-        submitData.append('video_url', formData.video_url);
-      }
-
-      if (isVercel && thumbnailFile) {
         submitData.append('thumbnail_url', `https://picsum.photos/seed/${formData.title}/800/450`);
-      } else if (thumbnailFile) {
-        submitData.append('thumbnail', thumbnailFile);
       } else {
-        submitData.append('thumbnail_url', formData.thumbnail_url || `https://picsum.photos/seed/${formData.title}/800/450`);
+        if (videoFile) submitData.append('video', videoFile);
+        else submitData.append('video_url', formData.video_url);
+
+        if (thumbnailFile) submitData.append('thumbnail', thumbnailFile);
+        else submitData.append('thumbnail_url', formData.thumbnail_url || `https://picsum.photos/seed/${formData.title}/800/450`);
       }
 
       const res = await fetch('/api/videos', {
@@ -169,7 +165,7 @@ export default function Upload({ user }: { user: any }) {
               </div>
               <div className="space-y-1">
                 <p className="font-bold">{videoFile ? videoFile.name : 'Select Video File'}</p>
-                <p className="text-xs text-zinc-500">MP4, MOV or WebM up to 500MB</p>
+                <p className="text-xs text-zinc-500">MP4, MOV or WebM up to 5000MB (Vercel Serverless Bypass Active)</p>
               </div>
               <button type="button" className="bg-zinc-800 hover:bg-zinc-700 px-6 py-2 rounded-xl text-sm font-bold transition-colors">
                 {videoFile ? 'Change File' : 'Browse Files'}

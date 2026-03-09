@@ -208,14 +208,14 @@ function ShortVideo({ video, isActive, onNext, user }: { video: Video, isActive:
             key="video"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="w-full h-full"
+            className="w-full h-full absolute inset-0 flex items-center justify-center bg-black"
           >
             <video
               ref={videoRef}
               src={video.video_url}
               loop
               muted={isMuted}
-              className="w-full h-full object-contain bg-black"
+              className="w-full h-full object-contain"
               onClick={togglePlay}
             />
 
@@ -440,7 +440,7 @@ export default function Shorts({ user }: { user: any }) {
         className="h-full w-full lg:h-[85vh] lg:max-w-[450px] snap-y snap-mandatory overflow-y-scroll no-scrollbar bg-zinc-900 shadow-2xl rounded-none lg:rounded-[40px]"
       >
         {shorts.map((short, i) => (
-          <div key={short.id} className="h-full w-full snap-start">
+          <div key={short.id} className="h-full w-full snap-start relative">
             <ShortVideo video={short} isActive={i === activeIndex} onNext={scrollNext} user={user} />
           </div>
         ))}
