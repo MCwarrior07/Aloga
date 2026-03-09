@@ -216,10 +216,10 @@ app.use(async (req, res, next) => {
           "admin", "admin@vibestream.com", hashedPassword, 1, "https://api.dicebear.com/7.x/avataaars/svg?seed=admin"
         );
         const videos = [
-          { title: "Welcome to Aloga", desc: "The future of video is here.", url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/seed/vibe1/800/450", short: 0 },
-          { title: "Cool Tech Review", desc: "Checking out the latest gadgets.", url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/seed/vibe2/800/450", short: 0 },
-          { title: "Life Hack #1", desc: "How to save time.", url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/seed/vibe3/800/450", short: 1 },
-          { title: "Funny Cat", desc: "Look at this cat!", url: "https://www.w3schools.com/html/mov_bbb.mp4", thumb: "https://picsum.photos/seed/vibe4/800/450", short: 1 },
+          { title: "Welcome to Aloga", desc: "The future of video is here.", url: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", thumb: "https://picsum.photos/seed/vibe1/800/450", short: 0 },
+          { title: "Cool Tech Review", desc: "Checking out the latest gadgets.", url: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", thumb: "https://picsum.photos/seed/vibe2/800/450", short: 0 },
+          { title: "Life Hack #1", desc: "How to save time.", url: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", thumb: "https://picsum.photos/seed/vibe3/800/450", short: 1 },
+          { title: "Funny Cat", desc: "Look at this cat!", url: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", thumb: "https://picsum.photos/seed/vibe4/800/450", short: 1 },
         ];
         for (const v of videos) {
           await db.run("INSERT INTO videos (user_id, title, description, video_url, thumbnail_url, is_short) VALUES (?, ?, ?, ?, ?, ?)",
@@ -227,7 +227,7 @@ app.use(async (req, res, next) => {
           );
         }
         await db.run("INSERT INTO ads (title, video_url, type) VALUES (?, ?, ?)",
-          "Aloga Premium Ad", "https://www.w3schools.com/html/mov_bbb.mp4", "pre-roll"
+          "Aloga Premium Ad", "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", "pre-roll"
         );
         console.log("Aloga: Seeded initial data");
       }

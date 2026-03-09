@@ -32,7 +32,7 @@ import HistoryPage from './pages/History';
 import SearchPage from './pages/Search';
 import Trending from './pages/Trending';
 import Liked from './pages/Liked';
-import { cn } from './lib/utils';
+import { cn, formatDate } from './lib/utils';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -156,7 +156,7 @@ export default function App() {
                           <img src={n.avatar_url} alt="avatar" className="w-10 h-10 rounded-full shrink-0 object-cover" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-zinc-200 line-clamp-2">{n.message}</p>
-                            <p className="text-xs text-zinc-500 mt-1">{format(new Date(n.created_at), 'MMM d, h:mm a')}</p>
+                            <p className="text-xs text-zinc-500 mt-1">{formatDate(n.created_at, 'MMM d, h:mm a')}</p>
                           </div>
                         </Link>
                       )) : (

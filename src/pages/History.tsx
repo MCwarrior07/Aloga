@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { cn, formatDate } from '../lib/utils';
 import { format } from 'date-fns';
 import { Video } from '../types';
 import { History as HistoryIcon, Play, MoreVertical } from 'lucide-react';
@@ -48,7 +49,7 @@ export default function History({ user }: { user: any }) {
                                 <h3 className="font-bold text-lg mb-1 group-hover:text-orange-500 transition-colors line-clamp-2">{item.title}</h3>
                                 <p className="text-sm text-zinc-400 mb-1">{item.creator_name}</p>
                                 <div className="text-xs text-zinc-500">
-                                    {item.views.toLocaleString()} views • Watched {format(new Date(item.watched_at), 'MMM d, h:mm a')}
+                                    {item.views.toLocaleString()} views • Watched {formatDate(item.watched_at, 'MMM d, h:mm a')}
                                 </div>
                                 <p className="text-xs text-zinc-500 mt-2 line-clamp-2">{item.description}</p>
                             </div>

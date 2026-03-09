@@ -20,7 +20,8 @@ import {
   Filter
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
+import AdBanner from '../components/AdBanner';
 import { format } from 'date-fns';
 
 export default function Studio({ user }: { user: any }) {
@@ -140,7 +141,7 @@ export default function Studio({ user }: { user: any }) {
                         </div>
                       </div>
                       <h4 className="font-bold text-lg leading-tight">{stats.videos[0].title}</h4>
-                      <p className="text-xs text-zinc-500">Published {format(new Date(stats.videos[0].created_at), 'MMM d, yyyy')}</p>
+                      <p className="text-xs text-zinc-500">Published {formatDate(stats.videos[0].created_at, 'MMM d, yyyy')}</p>
                     </div>
                     <div className="space-y-6">
                       <div className="flex items-center justify-between p-4 bg-zinc-950 rounded-2xl border border-zinc-800">
@@ -263,7 +264,7 @@ export default function Studio({ user }: { user: any }) {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-xs text-zinc-400">
-                          {format(new Date(video.created_at), 'MMM d, yyyy')}
+                          {formatDate(video.created_at, 'MMM d, yyyy')}
                         </td>
                         <td className="px-6 py-4 text-sm font-medium">{video.views.toLocaleString()}</td>
                         <td className="px-6 py-4 text-sm font-medium">{video.comment_count || 0}</td>

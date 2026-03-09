@@ -25,7 +25,7 @@ export default function Upload({ user }: { user: any }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    video_url: 'https://www.w3schools.com/html/mov_bbb.mp4', // Default for demo
+    video_url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', // Default for demo
     thumbnail_url: '',
     is_short: false,
     category: 'Entertainment',
@@ -89,7 +89,7 @@ export default function Upload({ user }: { user: any }) {
       if (isVercel) {
         // Vercel serverless proxy strictly blocks >4.5MB payloads and returns 413.
         // We MUST NOT send the binary File object. Instead, we pipe mock URLs.
-        submitData.append('video_url', 'https://www.w3schools.com/html/mov_bbb.mp4');
+        submitData.append('video_url', 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
         submitData.append('thumbnail_url', `https://picsum.photos/seed/${formData.title}/800/450`);
       } else {
         if (videoFile) submitData.append('video', videoFile);

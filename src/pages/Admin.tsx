@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Report } from '../types';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { format } from 'date-fns';
 
 export default function Admin({ user }: { user: any }) {
@@ -146,7 +146,7 @@ export default function Admin({ user }: { user: any }) {
                           </div>
                           <div>
                             <p className="text-sm font-bold">Reported for: {report.reason}</p>
-                            <p className="text-xs text-zinc-500">Reported by {report.reporter_name} • {format(new Date(report.created_at), 'MMM d, yyyy')}</p>
+                            <p className="text-xs text-zinc-500">Reported by {report.reporter_name} • {formatDate(report.created_at, 'MMM d, yyyy')}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 p-4 bg-zinc-950 rounded-2xl border border-zinc-800">

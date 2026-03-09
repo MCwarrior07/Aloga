@@ -17,8 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Video } from '../types';
-import { cn } from '../lib/utils';
-import { format } from 'date-fns';
+import { cn, formatDate } from '../lib/utils';
 import AdBanner from '../components/AdBanner';
 
 export default function Home() {
@@ -169,7 +168,7 @@ function VideoCard({ video }: { video: Video }) {
               {video.creator_name}
               <CheckCircle className="w-3 h-3 fill-zinc-500 text-black" />
             </Link>
-            <span>{video.views.toLocaleString()} views • {format(new Date(video.created_at), 'MMM d, yyyy')}</span>
+            <span>{video.views.toLocaleString()} views • {formatDate(video.created_at, 'MMM d, yyyy')}</span>
           </div>
         </div>
         <button className="p-1 hover:bg-zinc-900 rounded-lg transition-colors h-fit opacity-0 group-hover:opacity-100">

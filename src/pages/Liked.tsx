@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, MoreVertical, ThumbsUp, CheckCircle } from 'lucide-react';
+import { Play, ThumbsUp, CheckCircle } from 'lucide-react';
 import { Video } from '../types';
-import { format } from 'date-fns';
+import { cn, formatDate } from '../lib/utils';
 
 export default function Liked({ user }: { user: any }) {
     const [videos, setVideos] = useState<Video[]>([]);
@@ -56,7 +56,7 @@ export default function Liked({ user }: { user: any }) {
                                     <h3 className="font-bold text-zinc-100 line-clamp-2 leading-snug group-hover:text-orange-400 transition-colors">{video.title}</h3>
                                     <div className="flex flex-col text-xs text-zinc-500">
                                         <span className="flex items-center gap-1">{video.creator_name} <CheckCircle className="w-3 h-3 fill-zinc-500 text-black" /></span>
-                                        <span>{video.views.toLocaleString()} views • {format(new Date(video.created_at), 'MMM d, yyyy')}</span>
+                                        <span>{video.views.toLocaleString()} views • {formatDate(video.created_at, 'MMM d, yyyy')}</span>
                                     </div>
                                 </div>
                             </div>

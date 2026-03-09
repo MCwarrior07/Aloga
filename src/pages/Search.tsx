@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { format } from 'date-fns';
 import { Video } from '../types';
+import { cn, formatDate } from '../lib/utils';
 import { Search as SearchIcon, Play, MoreVertical, CheckCircle, Filter } from 'lucide-react';
 
 export default function Search() {
@@ -63,7 +63,7 @@ export default function Search() {
                             <div className="flex-1 min-w-0 pr-4 space-y-2">
                                 <h3 className="font-bold text-lg md:text-xl md:mb-1 group-hover:text-orange-500 transition-colors line-clamp-2 md:line-clamp-none">{video.title}</h3>
                                 <div className="text-xs text-zinc-500 hidden md:block">
-                                    {video.views.toLocaleString()} views • {format(new Date(video.created_at), 'MMM d, yyyy')}
+                                    {video.views.toLocaleString()} views • {formatDate(video.created_at, 'MMM d, yyyy')}
                                 </div>
                                 <div className="flex items-center gap-2 mt-2 md:mt-4">
                                     <object><Link to={`/channel/${video.user_id}`} className="shrink-0 group/creator">

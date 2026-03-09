@@ -14,10 +14,12 @@ import {
   Share2,
   Bell,
   UserPlus,
-  UserMinus
+  UserMinus,
+  Upload
 } from 'lucide-react';
 import { Video } from '../types';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
+import AdBanner from '../components/AdBanner';
 import { format } from 'date-fns';
 
 export default function Channel({ user }: { user: any }) {
@@ -216,7 +218,7 @@ export default function Channel({ user }: { user: any }) {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between py-3 border-b border-zinc-800">
                     <span className="text-zinc-500 text-sm">Joined</span>
-                    <span className="font-bold text-sm">{creator.created_at ? format(new Date(creator.created_at), 'MMM d, yyyy') : 'Recently'}</span>
+                    <span className="font-bold text-sm">{creator.created_at ? formatDate(creator.created_at, 'MMM d, yyyy') : 'Recently'}</span>
                   </div>
                   <div className="flex items-center justify-between py-3 border-b border-zinc-800">
                     <span className="text-zinc-500 text-sm">Total Views</span>
@@ -285,7 +287,7 @@ function VideoCard({ video }: { video: Video }) {
             {video.title}
           </h3>
           <div className="flex flex-col text-xs text-zinc-500">
-            <span>{video.views.toLocaleString()} views • {format(new Date(video.created_at), 'MMM d, yyyy')}</span>
+            <span>{video.views.toLocaleString()} views • {formatDate(video.created_at, 'MMM d, yyyy')}</span>
           </div>
         </div>
         <button className="p-1 hover:bg-zinc-900 rounded-lg transition-colors h-fit opacity-0 group-hover:opacity-100">

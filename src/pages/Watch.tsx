@@ -18,8 +18,7 @@ import {
   Info
 } from 'lucide-react';
 import { Video } from '../types';
-import { cn } from '../lib/utils';
-import { format } from 'date-fns';
+import { cn, formatDate } from '../lib/utils';
 import AdBanner from '../components/AdBanner';
 
 export default function Watch({ user }: { user: any }) {
@@ -358,7 +357,7 @@ export default function Watch({ user }: { user: any }) {
         <div className="bg-zinc-900/50 border border-zinc-900 rounded-3xl p-6 space-y-4">
           <div className="flex items-center gap-4 text-sm font-bold">
             <span>{video.views.toLocaleString()} views</span>
-            <span>{format(new Date(video.created_at), 'MMM d, yyyy')}</span>
+            <span>{formatDate(video.created_at, 'MMM d, yyyy')}</span>
             <div className="flex items-center gap-1 text-zinc-500">
               {video.tags?.split(',').map(tag => (
                 <span key={tag} className="hover:text-orange-500 cursor-pointer">#{tag.trim()}</span>
@@ -418,7 +417,7 @@ export default function Watch({ user }: { user: any }) {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold">{comment.username}</span>
-                    <span className="text-xs text-zinc-500">{format(new Date(comment.created_at), 'MMM d, yyyy')}</span>
+                    <span className="text-xs text-zinc-500">{formatDate(comment.created_at, 'MMM d, yyyy')}</span>
                   </div>
                   <p className="text-sm text-zinc-300">{comment.content}</p>
                   <div className="flex items-center gap-4 pt-2">
@@ -461,7 +460,7 @@ export default function Watch({ user }: { user: any }) {
                 <h4 className="text-sm font-bold line-clamp-2 leading-snug group-hover:text-orange-500 transition-colors">{v.title}</h4>
                 <div className="flex flex-col text-[11px] text-zinc-500">
                   <span className="hover:text-white transition-colors">{v.creator_name}</span>
-                  <span>{v.views.toLocaleString()} views • {format(new Date(v.created_at), 'MMM d, yyyy')}</span>
+                  <span>{v.views.toLocaleString()} views • {formatDate(v.created_at, 'MMM d, yyyy')}</span>
                 </div>
               </div>
             </Link>
