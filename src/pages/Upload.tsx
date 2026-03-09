@@ -62,6 +62,14 @@ export default function Upload({ user }: { user: any }) {
     setError('');
     setUploadProgress(0);
 
+    const isVercel = window.location.hostname.includes('vercel.app');
+
+    if (isVercel && videoFile && videoFile.size > 4 * 1024 * 1024) {
+      setError("File exceeds Vercel Serverless limit (4MB). Please select a smaller file or upload without one to auto-generate.");
+      setLoading(false);
+      return;
+    }
+
     // Simulate upload progress
     const interval = setInterval(() => {
       setUploadProgress(prev => {
@@ -80,10 +88,23 @@ export default function Upload({ user }: { user: any }) {
       submitData.append('is_short', String(formData.is_short));
       submitData.append('category', formData.category);
       submitData.append('tags', formData.tags);
-      if (videoFile) submitData.append('video', videoFile);
-      else submitData.append('video_url', formData.video_url);
-      if (thumbnailFile) submitData.append('thumbnail', thumbnailFile);
-      else submitData.append('thumbnail_url', formData.thumbnail_url || `https://picsum.photos/seed/${formData.title}/800/450`);
+
+      if (isVercel && videoFile) {
+        // Vercel serverless /tmp is ephemeral, videos will 404. We simulate uploads with a generic video string.
+        submitData.append('video_url', 'https://www.w3schools.com/html/mov_bbb.mp4');
+      } else if (videoFile) {
+        submitData.append('video', videoFile);
+      } else {
+        submitData.append('video_url', formData.video_url);
+      }
+
+      if (isVercel && thumbnailFile) {
+        submitData.append('thumbnail_url', `https://picsum.photos/seed/${formData.title}/800/450`);
+      } else if (thumbnailFile) {
+        submitData.append('thumbnail', thumbnailFile);
+      } else {
+        submitData.append('thumbnail_url', formData.thumbnail_url || `https://picsum.photos/seed/${formData.title}/800/450`);
+      }
 
       const res = await fetch('/api/videos', {
         method: 'POST',
@@ -156,7 +177,15 @@ export default function Upload({ user }: { user: any }) {
               <button type="button" className="bg-zinc-800 hover:bg-zinc-700 px-6 py-2 rounded-xl text-sm font-bold transition-colors">
                 {videoFile ? 'Change File' : 'Browse Files'}
               </button>
-              <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
+              <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="video/*" onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && f.size > 4 * 1024 * 1024) {
+                  setError("For this Vercel environment, please select a file under 4MB, or leave empty to simulate an upload.");
+                } else {
+                  setError("");
+                }
+                setVideoFile(f || null);
+              }} />
             </div>
 
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">

@@ -215,7 +215,7 @@ function ShortVideo({ video, isActive, onNext, user }: { video: Video, isActive:
               src={video.video_url}
               loop
               muted={isMuted}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-black"
               onClick={togglePlay}
             />
 
@@ -414,7 +414,7 @@ export default function Shorts({ user }: { user: any }) {
   };
 
   return (
-    <div className="h-screen w-full flex items-center justify-center bg-zinc-950 overflow-hidden">
+    <div className="h-[100dvh] w-full flex items-center justify-center bg-zinc-950 overflow-hidden pt-16 pb-16 lg:pb-0 lg:pt-0">
       {/* Navigation Controls (Desktop) */}
       <div className="hidden lg:flex flex-col gap-4 mr-8">
         <button
@@ -437,7 +437,7 @@ export default function Shorts({ user }: { user: any }) {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="h-[calc(100vh-64px)] lg:h-[85vh] w-full max-w-[450px] snap-y snap-mandatory overflow-y-scroll no-scrollbar bg-zinc-900 shadow-2xl rounded-none lg:rounded-[40px] pt-16 lg:pt-0"
+        className="h-full w-full lg:h-[85vh] lg:max-w-[450px] snap-y snap-mandatory overflow-y-scroll no-scrollbar bg-zinc-900 shadow-2xl rounded-none lg:rounded-[40px]"
       >
         {shorts.map((short, i) => (
           <div key={short.id} className="h-full w-full snap-start">
