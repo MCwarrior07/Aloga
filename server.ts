@@ -23,19 +23,36 @@ const upload = multer({ storage });
 const dbPath = isVercel ? path.join('/tmp', 'vibestream.db') : path.join(process.cwd(), "vibestream.db");
 
 // On Vercel, we need to copy the bundled DB to /tmp because the root is read-only
-if (isVercel && !fs.existsSync(dbPath)) {
-  const bundledDbPath = path.join(process.cwd(), "vibestream.db");
-  if (fs.existsSync(bundledDbPath)) {
-    try {
-      fs.copyFileSync(bundledDbPath, dbPath);
-      console.log("Database copied to /tmp");
-    } catch (err) {
-      console.error("Failed to copy database to /tmp:", err);
+if (isVercel) {
+  console.log("Running on Vercel. Target DB path:", dbPath);
+  if (!fs.existsSync(dbPath)) {
+    const bundledDbPath = path.join(process.cwd(), "vibestream.db");
+    console.log("Checking for bundled DB at:", bundledDbPath);
+    if (fs.existsSync(bundledDbPath)) {
+      try {
+        fs.copyFileSync(bundledDbPath, dbPath);
+        console.log("Database successfully copied to /tmp");
+      } catch (err) {
+        console.error("CRITICAL: Failed to copy database to /tmp:", err);
+      }
+    } else {
+      console.warn("WARNING: Bundled vibestream.db not found at", bundledDbPath);
     }
+  } else {
+    console.log("Database already exists in /tmp");
   }
 }
 
-const db = new Database(dbPath);
+let db: any;
+try {
+  db = new Database(dbPath);
+  console.log("Database connection established at:", dbPath);
+} catch (err) {
+  console.error("CRITICAL: Failed to open database:", err);
+  // Fallback to in-memory if it's a demo and persistsing fails
+  db = new Database(":memory:");
+  console.warn("Using in-memory database as fallback!");
+}
 const JWT_SECRET = process.env.JWT_SECRET || "vibe-secret-key-123";
 
 // --- Database Initialization ---
@@ -188,6 +205,24 @@ if (!seedUser) {
     "Aloga Premium Ad", "https://www.w3schools.com/html/mov_bbb.mp4", "pre-roll"
   );
 }
+
+// --- Diagnostic Route ---
+app.get("/api/health", (req, res) => {
+  try {
+    const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
+    res.json({
+      status: "ok",
+      vercel: isVercel,
+      dbPath,
+      userCount,
+      dbExists: fs.existsSync(dbPath),
+      tmpExists: fs.existsSync('/tmp'),
+      cwd: process.cwd()
+    });
+  } catch (err: any) {
+    res.status(500).json({ status: "error", message: err.message, stack: err.stack });
+  }
+});
 
 // --- Middleware ---
 const authenticate = (req: any, res: any, next: any) => {

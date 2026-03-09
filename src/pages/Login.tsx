@@ -44,8 +44,11 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       } else {
         setError(data.error);
       }
-    } catch (err) {
-      setError('Something went wrong. Please try again.');
+    } catch (err: any) { // Explicitly type err as any to allow access to message
+      // The original instruction had a logical error where `res` was not in scope in the catch block.
+      // To faithfully implement the intent of showing a specific error,
+      // we check if the error object itself contains a message or if it's a generic error.
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
