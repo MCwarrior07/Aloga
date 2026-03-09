@@ -1,6 +1,3 @@
-import express from "express";
-import { createServer as createViteServer } from "vite";
-import Database from "better-sqlite3";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import path from "path";
@@ -8,11 +5,15 @@ import fs from "fs";
 import multer from "multer";
 
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true' || !!process.env.VERCEL;
+const isProd = process.env.NODE_ENV === 'production' || isVercel;
 
 const uploadDir = isVercel ? path.join('/tmp', 'uploads') : path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+
+import express from "express";
+import Database from "better-sqlite3";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
@@ -24,22 +25,23 @@ const dbPath = isVercel ? path.join('/tmp', 'vibestream.db') : path.join(process
 
 // On Vercel, we need to copy the bundled DB to /tmp because the root is read-only
 if (isVercel) {
-  console.log("Running on Vercel. Target DB path:", dbPath);
+  console.log("Aloga: Running on Vercel. Target DB path:", dbPath);
   if (!fs.existsSync(dbPath)) {
-    const bundledDbPath = path.join(process.cwd(), "vibestream.db");
-    console.log("Checking for bundled DB at:", bundledDbPath);
+    // Try to find the bundled DB. It might be in the same dir or one level up depending on vercel bundle structure
+    const bundledDbPath = path.resolve(process.cwd(), "vibestream.db");
+    console.log("Aloga: Checking for bundled DB at:", bundledDbPath);
     if (fs.existsSync(bundledDbPath)) {
       try {
         fs.copyFileSync(bundledDbPath, dbPath);
-        console.log("Database successfully copied to /tmp");
+        console.log("Aloga: Database successfully copied to /tmp");
       } catch (err) {
-        console.error("CRITICAL: Failed to copy database to /tmp:", err);
+        console.error("Aloga ERROR: Failed to copy database to /tmp:", err);
       }
     } else {
-      console.warn("WARNING: Bundled vibestream.db not found at", bundledDbPath);
+      console.warn("Aloga WARNING: Bundled vibestream.db not found at", bundledDbPath);
     }
   } else {
-    console.log("Database already exists in /tmp");
+    console.log("Aloga: Database already exists in /tmp");
   }
 }
 
@@ -602,7 +604,8 @@ app.use((err: any, req: any, res: any, next: any) => {
 async function setupFrontend() {
   if (isVercel) return;
 
-  if (process.env.NODE_ENV !== "production") {
+  if (!isProd) {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
