@@ -240,21 +240,28 @@ app.use(async (req, res, next) => {
 });
 
 // --- Middleware ---
-const authenticate = (req: any, res: any, next: any) => {
+const authenticate = async (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Unauthorized" });
   try {
-    req.user = jwt.verify(token, JWT_SECRET);
+    const payload: any = jwt.verify(token, JWT_SECRET);
+    const user = await db.get("SELECT id FROM users WHERE id = ?", payload.id);
+    if (!user) return res.status(401).json({ error: "User not found. Token stale." });
+    req.user = payload;
     next();
   } catch (err) {
     res.status(401).json({ error: "Invalid token" });
   }
 };
 
-const optionalAuthenticate = (req: any, res: any, next: any) => {
+const optionalAuthenticate = async (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (token) {
-    try { req.user = jwt.verify(token, JWT_SECRET); } catch (err) { /* ignore */ }
+    try {
+      const payload: any = jwt.verify(token, JWT_SECRET);
+      const user = await db.get("SELECT id FROM users WHERE id = ?", payload.id);
+      if (user) req.user = payload;
+    } catch (err) { /* ignore */ }
   }
   next();
 };
@@ -291,6 +298,12 @@ app.post("/api/auth/login", async (req, res) => {
   }
   const token = jwt.sign({ id: user.id, username: user.username, isAdmin: user.is_admin }, JWT_SECRET);
   res.json({ token, user: { id: user.id, username: user.username, isAdmin: user.is_admin, avatar_url: user.avatar_url } });
+});
+
+app.get("/api/auth/me", authenticate, async (req: any, res) => {
+  const user: any = await db.get("SELECT id, username, is_admin, avatar_url FROM users WHERE id = ?", req.user.id);
+  if (!user) return res.status(401).json({ error: "User deleted" });
+  res.json({ user: { id: user.id, username: user.username, isAdmin: user.is_admin, avatar_url: user.avatar_url } });
 });
 
 // --- User Routes ---
