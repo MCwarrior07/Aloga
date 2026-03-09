@@ -33,16 +33,26 @@ class DB {
   }
 
   private async init() {
-    const SQL = await initSqlJs();
+    try {
+      // In Vercel, the wasm file is bundled in node_modules/sql.js/dist/
+      const wasmPath = path.resolve(process.cwd(), "node_modules/sql.js/dist/sql-wasm.wasm");
+      console.log("Aloga: WASM Path configured to", wasmPath);
 
-    // Try to load existing DB from disk
-    if (fs.existsSync(dbPath)) {
-      const buffer = fs.readFileSync(dbPath);
-      this.sqlDb = new SQL.Database(buffer);
-      console.log("Aloga: Loaded existing database from", dbPath);
-    } else {
-      this.sqlDb = new SQL.Database();
-      console.log("Aloga: Created new in-memory database");
+      const SQL = await initSqlJs({
+        locateFile: () => wasmPath
+      });
+
+      // Try to load existing DB from disk
+      if (fs.existsSync(dbPath)) {
+        const buffer = fs.readFileSync(dbPath);
+        this.sqlDb = new SQL.Database(buffer);
+        console.log("Aloga: Loaded existing database from", dbPath);
+      } else {
+        this.sqlDb = new SQL.Database();
+        console.log("Aloga: Created new in-memory database");
+      }
+    } catch (err) {
+      console.error("Aloga: Failed to initialize sql.js:", err);
     }
   }
 
