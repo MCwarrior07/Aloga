@@ -20,7 +20,21 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-const dbPath = isVercel ? path.join('/tmp', 'vibestream.db') : "vibestream.db";
+const dbPath = isVercel ? path.join('/tmp', 'vibestream.db') : path.join(process.cwd(), "vibestream.db");
+
+// On Vercel, we need to copy the bundled DB to /tmp because the root is read-only
+if (isVercel && !fs.existsSync(dbPath)) {
+  const bundledDbPath = path.join(process.cwd(), "vibestream.db");
+  if (fs.existsSync(bundledDbPath)) {
+    try {
+      fs.copyFileSync(bundledDbPath, dbPath);
+      console.log("Database copied to /tmp");
+    } catch (err) {
+      console.error("Failed to copy database to /tmp:", err);
+    }
+  }
+}
+
 const db = new Database(dbPath);
 const JWT_SECRET = process.env.JWT_SECRET || "vibe-secret-key-123";
 
@@ -203,6 +217,12 @@ const optionalAuthenticate = (req: any, res: any, next: any) => {
 const app = express();
 app.use(express.json());
 app.use("/uploads", express.static(uploadDir));
+
+// Global Error Logger for Vercel
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
 // --- Auth Routes ---
 app.post("/api/auth/register", (req, res) => {
@@ -535,6 +555,12 @@ app.post("/api/admin/moderate", authenticate, (req: any, res) => {
     db.prepare("UPDATE videos SET status = 'flagged' WHERE id = ?").run(video_id);
   }
   res.json({ success: true });
+});
+
+// Global Error Handler
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("SERVER ERROR:", err);
+  res.status(500).json({ error: "Internal Server Error", message: err.message });
 });
 
 // --- Vite Setup ---
