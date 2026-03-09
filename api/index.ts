@@ -412,12 +412,27 @@ app.get("/api/subscriptions/mine", authenticate, async (req: any, res) => {
   res.json(subs);
 });
 
-// --- Watch History ---
+// --- Watch History & Liked ---
 app.get("/api/history", authenticate, async (req: any, res) => {
-  const history = await db.all(`SELECT w.id as history_id, w.watched_at, v.*, u.username as creator_name, u.avatar_url as creator_avatar 
+  const history = await db.all(`SELECT w.id as history__id, w.watched_at, v.*, u.username as creator_name, u.avatar_url as creator_avatar 
     FROM watch_history w JOIN videos v ON w.video_id = v.id JOIN users u ON v.user_id = u.id
     WHERE w.user_id = ? ORDER BY w.watched_at DESC LIMIT 50`, req.user.id);
   res.json(history);
+});
+
+app.get("/api/videos/liked", authenticate, async (req: any, res) => {
+  const liked = await db.all(`SELECT v.*, u.username as creator_name, u.avatar_url as creator_avatar
+    FROM video_likes l JOIN videos v ON l.video_id = v.id JOIN users u ON v.user_id = u.id
+    WHERE l.user_id = ? ORDER BY l.created_at DESC`, req.user.id);
+  res.json(liked);
+});
+
+app.post("/api/history", authenticate, async (req: any, res) => {
+  const { video_id } = req.body;
+  await db.run("INSERT INTO watch_history (user_id, video_id) VALUES (?, ?)", req.user.id, video_id);
+  // Increment view
+  await db.run("UPDATE videos SET views = views + 1 WHERE id = ?", video_id);
+  res.json({ success: true });
 });
 
 // --- Notifications ---

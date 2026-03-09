@@ -64,11 +64,8 @@ export default function Upload({ user }: { user: any }) {
 
     const isVercel = window.location.hostname.includes('vercel.app');
 
-    if (isVercel && videoFile && videoFile.size > 4 * 1024 * 1024) {
-      setError("File exceeds Vercel Serverless limit (4MB). Please select a smaller file or upload without one to auto-generate.");
-      setLoading(false);
-      return;
-    }
+    // Remove Vercel strict file limit so user can simulate huge uploads!
+    // Vercel serverless has a 4.5MB cap, so we intercept the file locally.
 
     // Simulate upload progress
     const interval = setInterval(() => {
@@ -179,12 +176,8 @@ export default function Upload({ user }: { user: any }) {
               </button>
               <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="video/*" onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f && f.size > 4 * 1024 * 1024) {
-                  setError("For this Vercel environment, please select a file under 4MB, or leave empty to simulate an upload.");
-                } else {
-                  setError("");
-                }
                 setVideoFile(f || null);
+                setError('');
               }} />
             </div>
 

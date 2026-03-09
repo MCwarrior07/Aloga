@@ -30,6 +30,8 @@ import Admin from './pages/Admin';
 import Login from './pages/Login';
 import HistoryPage from './pages/History';
 import SearchPage from './pages/Search';
+import Trending from './pages/Trending';
+import Liked from './pages/Liked';
 import { cn } from './lib/utils';
 
 export default function App() {
@@ -298,6 +300,8 @@ export default function App() {
             <Route path="/studio" element={<Studio user={user} />} />
             <Route path="/admin" element={<Admin user={user} />} />
             <Route path="/history" element={<HistoryPage user={user} />} />
+            <Route path="/trending" element={<Trending />} />
+            <Route path="/liked" element={<Liked user={user} />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/login" element={<Login onLogin={setUser} />} />
           </Routes>

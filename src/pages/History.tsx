@@ -18,8 +18,6 @@ export default function History({ user }: { user: any }) {
                     setHistory(data);
                     setLoading(false);
                 });
-        } else {
-            setLoading(false);
         }
     }, [user]);
 
@@ -36,7 +34,7 @@ export default function History({ user }: { user: any }) {
             {history.length > 0 ? (
                 <div className="space-y-4">
                     {history.map((item) => (
-                        <Link key={item.history_id} to={`/watch/${item.id}`} className="flex gap-4 p-4 hover:bg-zinc-900 rounded-2xl transition-colors group">
+                        <Link key={item.history__id} to={`/watch/${item.id}`} className="flex gap-4 p-4 hover:bg-zinc-900 rounded-2xl transition-colors group">
                             <div className="w-48 aspect-video bg-zinc-800 rounded-xl overflow-hidden relative shrink-0 shadow-lg">
                                 <img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
                                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
