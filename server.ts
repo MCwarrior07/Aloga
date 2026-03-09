@@ -9,8 +9,8 @@ import multer from "multer";
 const isVercel = !!process.env.VERCEL;
 const isProd = process.env.NODE_ENV === 'production' || isVercel;
 
-const uploadDir = isVercel ? path.join('/tmp', 'uploads') : path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadDir)) {
+const uploadDir = isVercel ? '/tmp' : path.join(process.cwd(), "uploads");
+if (!isVercel && !fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
