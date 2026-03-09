@@ -208,7 +208,7 @@ export default function Watch({ user }: { user: any }) {
       {/* Main Content */}
       <div className="lg:col-span-8 space-y-6">
         {/* Video Player Container */}
-        <div className="aspect-video bg-black rounded-3xl overflow-hidden relative group shadow-2xl">
+        <div className="w-full aspect-video bg-black rounded-xl md:rounded-3xl overflow-hidden relative group shadow-2xl">
           <AnimatePresence mode="wait">
             {ad ? (
               <motion.div
@@ -222,7 +222,7 @@ export default function Watch({ user }: { user: any }) {
                   src={ad.video_url}
                   autoPlay
                   muted={isMuted}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain bg-black"
                 />
                 <div className="absolute top-6 left-6 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
                   <Info className="w-4 h-4 text-orange-500" />
@@ -252,7 +252,7 @@ export default function Watch({ user }: { user: any }) {
                 <video
                   ref={videoRef}
                   src={video.video_url}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full max-h-[75vh] object-contain bg-black"
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
                   onClick={togglePlay}
