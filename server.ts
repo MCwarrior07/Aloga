@@ -1,3 +1,5 @@
+import express from "express";
+import Database from "better-sqlite3";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import path from "path";
@@ -11,9 +13,6 @@ const uploadDir = isVercel ? path.join('/tmp', 'uploads') : path.join(process.cw
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
-
-import express from "express";
-import Database from "better-sqlite3";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
@@ -208,24 +207,6 @@ if (!seedUser) {
   );
 }
 
-// --- Diagnostic Route ---
-app.get("/api/health", (req, res) => {
-  try {
-    const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
-    res.json({
-      status: "ok",
-      vercel: isVercel,
-      dbPath,
-      userCount,
-      dbExists: fs.existsSync(dbPath),
-      tmpExists: fs.existsSync('/tmp'),
-      cwd: process.cwd()
-    });
-  } catch (err: any) {
-    res.status(500).json({ status: "error", message: err.message, stack: err.stack });
-  }
-});
-
 // --- Middleware ---
 const authenticate = (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -259,6 +240,24 @@ app.use("/uploads", express.static(uploadDir));
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
+});
+
+// --- Diagnostic Route ---
+app.get("/api/health", (req, res) => {
+  try {
+    const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
+    res.json({
+      status: "ok",
+      vercel: isVercel,
+      dbPath,
+      userCount,
+      dbExists: fs.existsSync(dbPath),
+      tmpExists: fs.existsSync('/tmp'),
+      cwd: process.cwd()
+    });
+  } catch (err: any) {
+    res.status(500).json({ status: "error", message: err.message, stack: err.stack });
+  }
 });
 
 // --- Auth Routes ---
