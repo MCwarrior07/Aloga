@@ -14,7 +14,9 @@ import {
   Layout
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Video } from '../types';
 import { cn } from '../lib/utils';
+import { upload } from '@vercel/blob/client';
 
 export default function Upload({ user }: { user: any }) {
   const navigate = useNavigate();
@@ -87,10 +89,35 @@ export default function Upload({ user }: { user: any }) {
       submitData.append('tags', formData.tags);
 
       if (isVercel) {
-        // Vercel serverless proxy strictly blocks >4.5MB payloads and returns 413.
-        // We MUST NOT send the binary File object. Instead, we pipe mock URLs.
-        submitData.append('video_url', 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
-        submitData.append('thumbnail_url', `https://picsum.photos/seed/${formData.title}/800/450`);
+        if (!process.env.VITE_VERCEL_BLOB_TOKEN && !(import.meta as any).env?.VITE_VERCEL_BLOB_TOKEN) {
+          setError('Hosting Limitation: Contact Admin to add VERCEL_BLOB_TOKEN to upload real video files to the Edge network!');
+          setLoading(false);
+          clearInterval(interval);
+          return;
+        }
+
+        // Edge Blob Upload (Bypasses 4.5MB Serverless proxy)
+        if (videoFile) {
+          const vBlob = await upload(videoFile.name, videoFile, {
+            access: 'public',
+            handleUploadUrl: '/api/upload',
+            clientPayload: 'video'
+          });
+          submitData.append('video_url', vBlob.url);
+        } else {
+          submitData.append('video_url', formData.video_url);
+        }
+
+        if (thumbnailFile) {
+          const tBlob = await upload(thumbnailFile.name, thumbnailFile, {
+            access: 'public',
+            handleUploadUrl: '/api/upload',
+            clientPayload: 'thumb'
+          });
+          submitData.append('thumbnail_url', tBlob.url);
+        } else {
+          submitData.append('thumbnail_url', formData.thumbnail_url || `https://picsum.photos/seed/${formData.title}/800/450`);
+        }
       } else {
         if (videoFile) submitData.append('video', videoFile);
         else submitData.append('video_url', formData.video_url);
@@ -165,7 +192,7 @@ export default function Upload({ user }: { user: any }) {
               </div>
               <div className="space-y-1">
                 <p className="font-bold">{videoFile ? videoFile.name : 'Select Video File'}</p>
-                <p className="text-xs text-zinc-500">MP4, MOV or WebM up to 5000MB (Vercel Serverless Bypass Active)</p>
+                <p className="text-xs text-zinc-500">MP4, MOV or WebM (Vercel limits uploads to 4.5MB)</p>
               </div>
               <button type="button" className="bg-zinc-800 hover:bg-zinc-700 px-6 py-2 rounded-xl text-sm font-bold transition-colors">
                 {videoFile ? 'Change File' : 'Browse Files'}

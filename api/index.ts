@@ -1,4 +1,6 @@
 import express from "express";
+import { put } from "@vercel/blob";
+import { handleUpload } from "@vercel/blob/client";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import path from "path";
@@ -14,11 +16,13 @@ if (!isVercel && !fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-});
-const uploadMiddleware = multer({ storage });
+const storage = isVercel
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+  });
+const upload = multer({ storage });
 
 const JWT_SECRET = process.env.JWT_SECRET || "vibe-secret-key-123";
 const dbPath = isVercel ? path.join('/tmp', 'vibestream.db') : path.join(process.cwd(), "vibestream.db");
@@ -386,17 +390,63 @@ app.post("/api/videos/:id/comments", authenticate, async (req: any, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-app.post("/api/videos", authenticate, uploadMiddleware.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req: any, res) => {
-  const { title, description, is_short, category, tags } = req.body;
+app.post("/api/videos", authenticate, upload.fields([{ name: "video", maxCount: 1 }, { name: "thumbnail", maxCount: 1 }]), async (req: any, res) => {
   try {
-    const videoPath = req.files?.['video'] ? `/uploads/${req.files['video'][0].filename}` : req.body.video_url;
-    const thumbnailPath = req.files?.['thumbnail'] ? `/uploads/${req.files['thumbnail'][0].filename}` : req.body.thumbnail_url;
-    const isShortVal = is_short === 'true' || is_short === true ? 1 : 0;
-    const result = await db.run("INSERT INTO videos (user_id, title, description, video_url, thumbnail_url, is_short, category, tags, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      req.user.id, title, description, videoPath, thumbnailPath, isShortVal, category || 'General', tags || '', 'published'
+    const { title, description, is_short, category, tags, video_url: body_video_url, thumbnail_url: body_thumbnail_url } = req.body;
+    let videoUrl = body_video_url;
+    let thumbnailUrl = body_thumbnail_url;
+
+    // Use Vercel Blob if running on Vercel
+    if (isVercel) {
+      if (req.files?.["video"]) {
+        const file = req.files["video"][0];
+        const blob = await put(`videos/${Date.now()}-${file.originalname}`, file.buffer, { access: 'public' });
+        videoUrl = blob.url;
+      }
+      if (req.files?.["thumbnail"]) {
+        const file = req.files["thumbnail"][0];
+        const blob = await put(`thumbnails/${Date.now()}-${file.originalname}`, file.buffer, { access: 'public' });
+        thumbnailUrl = blob.url;
+      }
+    } else {
+      // Local deployment fallback
+      if (req.files?.["video"]) videoUrl = `/uploads/${req.files["video"][0].filename}`;
+      if (req.files?.["thumbnail"]) thumbnailUrl = `/uploads/${req.files["thumbnail"][0].filename}`;
+    }
+
+    const result = await db.run(
+      "INSERT INTO videos (user_id, title, description, video_url, thumbnail_url, is_short, category, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      req.user.id, title, description, videoUrl, thumbnailUrl, is_short === 'true' ? 1 : 0, category, tags
     );
-    res.json({ success: true, videoId: result.lastInsertRowid });
-  } catch (err: any) { res.status(400).json({ error: err.message }); }
+    res.json({ success: true, id: result.lastInsertRowid });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post("/api/upload", optionalAuthenticate, async (req: any, res) => {
+  try {
+    const jsonResponse = await handleUpload({
+      body: req.body,
+      request: req,
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        // Enforce DB Login strictly on Vercel
+        if (!req.user) {
+          throw new Error('Unauthorized Blob Origin');
+        }
+        return {
+          allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/webm', 'image/jpeg', 'image/png', 'image/webp'],
+          tokenPayload: JSON.stringify({ userId: req.user.id }),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        // Logging only, database is handled by the synchronous /api/videos post
+        console.log(`Blob ${blob.url} securely piped by User ${tokenPayload}`);
+      },
+    });
+
+    res.status(200).json(jsonResponse);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // --- Subscription Routes ---

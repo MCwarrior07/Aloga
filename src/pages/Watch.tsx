@@ -256,35 +256,16 @@ export default function Watch({ user }: { user: any }) {
                   onLoadedMetadata={handleLoadedMetadata}
                   onClick={togglePlay}
                   autoPlay
+                  controls
+                  controlsList="nodownload"
                 />
 
-                {/* Custom Controls */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6 gap-4">
-                  {/* Progress Bar */}
-                  <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden cursor-pointer group/progress">
-                    <div
-                      className="h-full bg-orange-500 relative"
-                      style={{ width: `${progress}%` }}
-                    >
-                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-orange-500 rounded-full shadow-lg scale-0 group-hover/progress:scale-100 transition-transform" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
+                {/* Custom Controls (Hidden logically, managed by native controls now) */}
+                <div className="absolute inset-0 bg-transparent flex flex-col justify-end p-6 gap-4 pointer-events-none">
+                  <div className="flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-6"></div>
                     <div className="flex items-center gap-6">
-                      <button onClick={togglePlay} className="hover:scale-110 transition-transform">
-                        {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
-                      </button>
-                      <div className="flex items-center gap-4">
-                        <button onClick={() => setIsMuted(!isMuted)}>
-                          {isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
-                        </button>
-                        <span className="text-xs font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <Settings className="w-5 h-5 hover:rotate-90 transition-transform cursor-pointer" />
-                      <Maximize className="w-5 h-5 cursor-pointer" />
+                      <Maximize className="w-5 h-5 cursor-pointer pointer-events-auto shadow-sm text-white/50 hover:text-white right-4 bottom-4 absolute" />
                     </div>
                   </div>
                 </div>
